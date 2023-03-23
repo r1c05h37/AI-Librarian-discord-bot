@@ -1,3 +1,5 @@
+github.com/ayush6624/go-chatgpt v0.1.0 h1:vcYXH+dl+da3ITr+uNU7lamC3ZvYMVLkM8B87XOLwRw=
+github.com/ayush6624/go-chatgpt v0.1.0/go.mod h1:aFDfQLN+MW3D3aKvuVU72EigsiUYQN49wsVlAORiWDA=
 github.com/bwmarrin/discordgo v0.27.1 h1:ib9AIc/dom1E/fSIulrBwnez0CToJE113ZGt4HoliGY=
 github.com/bwmarrin/discordgo v0.27.1/go.mod h1:NJZpH+1AfhIcyQsPeuBKsUtYrRnjkyu0kIVMCHkZtRY=
 github.com/chatgp/chatgpt-go v1.3.1 h1:jWKztb8X4Wa3eOQVZtCfAzTG0baX2Rev1CQYTvNNW80=

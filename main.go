@@ -8,37 +8,47 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"strings"
+	"bufio"
 
 	"github.com/bwmarrin/discordgo"
-	"github.com/ayush6624/chatgpt-go/chatgpt"
+	"github.com/ayush6624/go-chatgpt"
 	
-	"github.com/r1c05h37/AI-Librarian-discord-bot/commands"
-	"github.com/r1c05h37/AI-Librarian-discord-bot/actions"
-	"github.com/r1c05h37/AI-Librarian-discord-bot/chatgpt"
-	"github.com/r1c05h37/AI-Librarian-discord-bot/chatsonic"
+	"github.com/r1c05h37/AI-Librarian-discord-bot/personality"
+	//"github.com/r1c05h37/AI-Librarian-discord-bot/searchapis"
 )
 
-// Variables used for command line parameters
+// Variables
 var (
+	KeyFile string
+	InitFile string
 	DiscordToken string
-	ChatgptToken string
-	ChatsonicToken string
-
-	RemoveCommands = flag.Bool("rmcmd", true, "Remove all commands after shutdowning or not")
-	
-	integerOptionMinValue          = 1.0
-	dmPermission                   = false
-	defaultMemberPermissions int64 = discordgo.PermissionManageServer
-
-	commandlist = commands.list();
+	ChatGPTToken string
+	GPTclient *chatgpt.Client
 )
 
 func init() {
-
-	flag.StringVar(&DiscordToken, "discord", "", "Bot Token")
-	flag.StringVar(&ChatgptToken, "chatgpt", "", "Bot Token")
-	flag.StringVar(&ChatsonicToken, "chatsonic", "", "Bot Token")
+	//flags 
+	flag.StringVar(&KeyFile, "k", "", "Tokens file")
+	flag.StringVar(&InitFile, "i", "", "Init file for chatgpt")
 	flag.Parse()
+	
+	//read file for tokens
+	var Keys [] string
+	readFile, err := os.Open(KeyFile)
+    if err != nil {
+        fmt.Println(err)
+    }
+    fileScanner := bufio.NewScanner(readFile)
+    
+    fileScanner.Split(bufio.ScanLines)
+  
+    for fileScanner.Scan() {
+        Keys = append(Keys, fileScanner.Text())
+    }
+    readFile.Close()
+    DiscordToken = Keys[0]
+    ChatGPTToken = Keys[1]
 }
 
 func main() {
@@ -50,19 +60,19 @@ func main() {
 	}
 
 	// New ChatGPT session
-	client, err := chatgpt.NewClient(ChatgptToken)
+	GPTclient, err := chatgpt.NewClient(ChatGPTToken)
 		if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
 	}
+	//Initialize ChatGPT's personality
+	initresponse := personality.Initialize(GPTclient, InitFile)
+	dg.ChannelMessageSend("1087031653429420113", initresponse)
 	
 	// Register the messageCreate func as a callback for MessageCreate events.
 	dg.AddHandler(messageCreate)
 
-	// To receive messages
-	dg.Identify.Intents = discordgo.IntentsGuildMessages
-	
-	// Initialize commands
-	commands.Initialize()
+	// To receive messages, userJoinsVc's and userExitsVC's
+	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsGuildVoiceStates
 
 	// Open a websocket connection to Discord and begin listening.
 	err = dg.Open()
@@ -71,24 +81,41 @@ func main() {
 		return
 	}
 	
-	
 	// Wait here until CTRL-C or other term signal is received.
 	fmt.Println("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
-
-	commands.Clean()
 	
 	// Cleanly close down the Discord session.
 	dg.Close()
 }
 
+
+//on new message
 func messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
     
+    //do nothing if author is a bot
 	if m.Author.Bot {
 		return
 	}
 	
-	
+	//if contains mention of Auri
+	if strings.Contains(m.Content, "<@1088044714491654205>")  {
+		responce, flags := personality.Answer(GPTclient, m.Content)
+		s.ChannelMessageSend(m.ChannelID, responce)
+		for id := range flags {
+			switch flags[id][0]{
+				case "img": {
+					
+				}
+				case "gif": {
+					
+				}
+				case "vid": {
+					
+				}
+			}
+		}
+	}
 }

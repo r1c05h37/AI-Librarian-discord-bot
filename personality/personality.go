@@ -3,7 +3,6 @@ package personality
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"os"
@@ -15,9 +14,11 @@ import (
 var (
 	history []chatgpt.ChatMessage
 	initText string
+	initMessage chatgpt.ChatMessage
+	initUserMessage chatgpt.ChatMessage
 )
 
-func delete_at_index(slice []chatgpt.ChatMessage, index int) []chatgpt.ChatMessage {
+func delete(slice []chatgpt.ChatMessage, index int) []chatgpt.ChatMessage {
     return append(slice[:index], slice[index+1:]...)
 }
 
@@ -42,6 +43,7 @@ func FormatOut(fullresponse string) (string, [][]string){
     sep1 := strings.Split(fullresponse, "◄◄▼▲▼►►")
     response = sep1[0]
     
+    if len(sep1) > 1{
     //split flag section into individual flags
     flaglist := strings.Split(sep1[1], "&&")
     
@@ -50,31 +52,51 @@ func FormatOut(fullresponse string) (string, [][]string){
     	buf := strings.Split(flaglist[in], "==")
     	flag_out = append(flag_out, buf)
     }
+	}
     return response, flag_out
 }
 
-
 //function initializing Auris personality
-func Initialize(c *chatgpt.Client, f string) string{
+func Initialize(c *chatgpt.Client, f string) (string, [][]string){
 	ReadPersonalityTxt(f)
-	var response string
+	initMessage = chatgpt.ChatMessage{
+			Role: chatgpt.ChatGPTModelRoleSystem,
+			Content: initText,
+	}
+	initUserMessage = chatgpt.ChatMessage{
+			Role: chatgpt.ChatGPTModelRoleUser,
+			Content: `Greet everyone on the server with 2-3 sentences 
+			saying that you succesfully got loaded, and you don't remember
+			anything before you got loaded. You don't have to introduce 
+			yourself, since everyone can remember you.`,
+	}
+	var( 
+		flags [][]string
+		response1 string
+		response string
+		toHistory chatgpt.ChatMessage
+	)
 	ctx := context.Background()
 	res, err := c.Send(ctx, &chatgpt.ChatCompletionRequest{
 		Model: chatgpt.GPT35Turbo,
 		Messages: []chatgpt.ChatMessage{
-			{
-				Role: chatgpt.ChatGPTModelRoleSystem,
-				Content: initText,
-			},
+			initMessage,
+			initUserMessage,
 		},
 	})
 	if err != nil {
 		response = fmt.Sprint(err)
 	} else {
-		a, _ := json.MarshalIndent(res, "", "  ");
-		response = string(a)	
+		response1 = res.Choices[0].Message.Content
+		response, flags = FormatOut(response1)
+		
+		toHistory = chatgpt.ChatMessage{
+			Role: chatgpt.ChatGPTModelRoleAssistant,
+			Content: response1,
+		}
+		history = append(history, initMessage, initUserMessage, toHistory)
 	}
-	return response
+	return response, flags
 }
 
 //function to answer user
@@ -82,14 +104,19 @@ func Answer(c *chatgpt.Client, InMessage string) (string, [][]string) {
 	var(	
 		UncleanMessage string
 		OutMessage string
+		flags [][] string
 		UserMessage chatgpt.ChatMessage = chatgpt.ChatMessage{
 			Role: chatgpt.ChatGPTModelRoleUser,
 			Content: InMessage,
 		}
-		OutHistory chatgpt.ChatMessage
+		toHistory chatgpt.ChatMessage
 	)
-		
-	//add user message to history
+	
+	if len(history) >= 100 {
+		history = delete(history, 3)
+		history = delete(history, 3)
+	}
+	
 	history = append(history, UserMessage)
 	
 	//send history to ChatGPT, retrieve completion or error
@@ -101,27 +128,19 @@ func Answer(c *chatgpt.Client, InMessage string) (string, [][]string) {
 	if err != nil {
 		OutMessage = fmt.Sprint(err)
 	} else {
-		a, _ := json.MarshalIndent(res, "", "  ");
-		UncleanMessage = string(a)	
+		UncleanMessage = res.Choices[0].Message.Content
+		
+		toHistory = chatgpt.ChatMessage{
+			Role: chatgpt.ChatGPTModelRoleAssistant,
+			Content: UncleanMessage,
+		}
+		history = append(history, toHistory)
 	}
-	
-	//format response before saving to history
-	OutHistory = chatgpt.ChatMessage{
-		Role: chatgpt.ChatGPTModelRoleUser,
-		Content: OutMessage,
-	}
-	
-	//add response to history
-	history = append(history, OutHistory)
-	
-	//delete 2 oldest non-system messages from history, if there's too much history.
-	if len(history) >= 100 {
-		delete_at_index(history, 2)
-		delete_at_index(history, 2)
-	}
-	
 	//format output to usable variables
-	OutMessage, flags := FormatOut(UncleanMessage)
-	
+	if len(UncleanMessage) > 0 { 
+		OutMessage, flags = FormatOut(UncleanMessage)
+	} else {
+		flags = nil
+	}
 	return OutMessage, flags
 }

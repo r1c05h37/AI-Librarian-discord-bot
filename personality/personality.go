@@ -49,8 +49,9 @@ func FormatOut(fullresponse string) (string, [][]string){
     
     //split flags to {"flag1", "value"}, {"flag2", "value"} format
     for in := range flaglist {
-    	buf := strings.Split(flaglist[in], "==")
-    	flag_out = append(flag_out, buf)
+    	buf1, _ := strings.CutPrefix(flaglist[in], " ")
+    	buf2 := strings.Split(buf1, "==")
+    	flag_out = append(flag_out, buf2)
     }
 	}
     return response, flag_out
@@ -112,7 +113,7 @@ func Answer(c *chatgpt.Client, InMessage string) (string, [][]string) {
 		toHistory chatgpt.ChatMessage
 	)
 	
-	if len(history) >= 100 {
+	if len(history) >= 30 {
 		history = delete(history, 3)
 		history = delete(history, 3)
 	}
@@ -136,6 +137,14 @@ func Answer(c *chatgpt.Client, InMessage string) (string, [][]string) {
 		}
 		history = append(history, toHistory)
 	}
+	
+	if res.Usage.Prompt_Tokens >= 3600 {
+		for i := 0; i < 10; i++ {
+			history = delete(history, 3)
+		}
+		UncleanMessage = "Memory overflow happened... Rebooting... ◄◄▼▲▼►►gif==endless loading"
+	}
+	
 	//format output to usable variables
 	if len(UncleanMessage) > 0 { 
 		OutMessage, flags = FormatOut(UncleanMessage)

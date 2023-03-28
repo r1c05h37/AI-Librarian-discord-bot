@@ -41,6 +41,3 @@ Following similar rules, you can make AI add any functionality based on users in
 
 ### Using this in my discord bot
 Basically what I want, is to handle commands without the need of any - you can text something vague, like "@Bot Me want potato image" and bot will understand it anyway.
-But after thinking a bit, the realisation came in - *I can make it roleplay in chat, while it being actually useful bot* 
-Or even better - with some work, this is possible to make it *behave as an individual, that can do much more than just text. It can be as almost-alive helper bot.*
-But this is for later. Right now I have to implement basics - interactions and flags. I sure do hope that I will not fuck up in process of coding, and do not lose interest as I usually do.
